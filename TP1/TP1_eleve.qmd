@@ -1,0 +1,63 @@
+---
+title: "TP1 - Statistique avec R"  # Titre du document
+description: "Découverte de Quarto en sortie html"  # Description ou objectif du document
+author: "Prénom NOM"  # Auteur du document, à remplacer par votre nom
+format: 
+  html:  # Format de sortie du document (ici en HTML)
+    embed-resources: true # Incorporer toutes les ressources nécessaires (comme le CSS et les images) directement dans le fichier HTML.
+
+lang: fr  # Langue du document (ici en français)
+from: markdown+emoji  # Format d'entrée pour le document (markdown avec support des emojis)
+number-sections: true  # Numéroter les sections du document
+lightbox: true  # Activer la fonctionnalité Lightbox pour afficher des images ou autres contenus en plein écran
+---
+
+<!--Cette première partie ci-dessus entre deux « --- » s’appelle un « YAML header » (nom en anglais aussi utilisé en français) ou un « en-tête YAML ».-->
+
+
+Ce document Quarto est téléchargeable sur Moodle, disponible ici : <https://foad-moodle.ensai.fr/mod/folder/view.php?id=13549>.
+
+
+# Principales fonctionnalités d'un script `.qmd`
+
+## Pourquoi utiliser **Quarto** ?{#avantages_quarto}
+
+- *Reproductibilité* : Les résultats sont toujours les mêmes lorsque vous réexécutez le code via : 
+  + le bouton :arrow_right: `Render` 
+  + :bulb: ou via `Ctrl` + `Maj` + `K`, l'analogue du `Ctrl` + `Enter` dans un script R
+- *Polyvalence* : Supporte plusieurs langages, différents types de sortie, et des formats variés.
+- *Efficacité* : Un seul document pour tout intégrer (texte, code, graphiques, etc.).
+- *Simplicité* : Le format markdown est simple à comprendre et à utiliser pour des étudiants.
+
+<!-- Et plein d'autres arguments... -->
+
+En résumé, [Quarto](https://quarto.org) est un [excellent]{style="color:red;"} outil pour produire des documents dynamiques et reproductibles, qui combinent à la fois texte et analyses de données, dans un format flexible et interactif.
+
+
+## Comment intégrer une **formule LaTeX** ?
+
+Les documents Quarto dans RStudio permettent d'utliser du langage $\LaTeX$ math pour la rédaction de formules mathématiques. 
+
+Exemple :
+
+> Soient $X_1, X_2, \ldots, X_n$ une suite de variables aléatoires indépendantes et identiquement distribuées, telle que $\text{E}[X_i] = \mu$ et $\text{Var}[X_i] = \sigma^2 < \infty$. On définit :
+
+$$
+S_n = \frac{X_1 + X_2 + \cdots + X_n}{n}
+      = \frac{1}{n}\sum_{i}^{n} X_i
+$$
+<!-- Les formules mathématiques en Latex... c'est bien long. Utiliser une IA générative pour les créer, ça c'est une utilisation efficace !  -->
+
+## Comment intégrer une **image** ?
+
+Un des gros avantages de Quarto (résumés dans le point "efficacité" de la [première section](#avantages_quarto)) est aussi l'intégration simplifiée d'images.
+
+À vous de jouer (question 2) !
+
+## Comment intégrer du **code R** ?
+
+À vous de jouer (question 3) !
+
+
+---
+
