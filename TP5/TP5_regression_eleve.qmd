@@ -1,0 +1,379 @@
+---
+title: "TP5 - Statistique avec R - Régression linéaire " 
+# description: ""  # Description ou objectif du document
+format:
+  pdf:
+    documentclass: article
+    # mainfont: "Times New Roman"
+    # number-sections: true # Numéroter les sections du document
+    # number-depth: 3
+    # toc: true     Ajout un sommaire
+    # toc-depth: 3   Profondeur de numérotation/TOC
+    header-includes: |
+      \usepackage[bottom]{footmisc}
+    text: |
+      \usepackage[dvipsnames]{xcolor}
+      \usepackage{booktabs}
+      \usepackage{hyperref}
+      \usepackage{enumitem}
+lang: fr
+# from: markdown+emoji  # Format d'entrée pour le document (markdown avec support des emojis)
+fontsize: 10pt
+papersize: a4
+geometry: top=1.5cm, bottom=1.5cm, left=2.5cm, right=2.5cm
+# bibliography: references.bib
+link-citations: true 
+nocite: "@*"
+---
+
+
+```{r setup, include=FALSE}
+# knitr::opts_chunk$set(eval = FALSE)
+# knitr::opts_chunk$set(tidy = FALSE)
+# knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, results='hide',error=TRUE,eval = FALSE)
+```
+
+---
+
+## **OBJECTIFS DU TP:**
+
+Le but de ce TP est de s'initier à la régression linéaire.
+
+---
+
+Travaillez soit sur le [cluster R](https://clust-n1.ensai.fr/){target="_blank"} soit sur le [Datalab/Onyxia](https://datalab.sspcloud.fr/){target="_blank"}. Vous pouvez aussi librement choisir de coder sur un document Quarto `.qmd` (au sein de *chunks* donc) ou sur un scrpit `.R` classique.
+
+
+**Commencer par charger votre Rprojet `Stats_avec_R ` créé au TP1**, puis affecter un nouveau dossier "TP5 regression". Pour importer vos données, cliquez sur le bouton `Upload` situé dans l'onglet `Files`, en dessous de votre environnement.
+
+```{r, results="hide", message = FALSE, warning = FALSE, error=TRUE}
+# Chargement des packages nécessaires
+
+library(tidyverse)
+library(MASS)
+# install.packages("ellipse")
+library(ellipse)
+# install.packages("corrplot")
+library(corrplot)
+```
+
+---
+
+\newpage
+
+## Exercice 1
+
+**Première partie : Régression Linéaire Simple ($p = 1$ variable explicative) - la méthode MCO **
+
+::: {.callout-tip title="Quelques rappels sur la régression linéaire simple et la méthode MCO"}
+
+La régression linéaire simple est une méthode d'analyse statistique utilisée pour modéliser la relation linéaire entre une variable explicative et une variable à expliquer. Dans le cas où il y a plusieurs variables explicatives, on parle de régresion linéaire multiple. Elle suppose qu'il existe une relation linéaire entre les variables.
+
+\vspace{0.10 cm}
+
+La forme générale de la régression linéaire simple est représentée par l'équation :
+
+$$\boxed{Y_{i} = \beta_0 + \beta_1 \times X_{1i} + \varepsilon_i}$$
+
+où :
+
+  - $Y_i$ est la **variable à expliquer** (cible) pour l'individu i.
+  - $X_{1i}$ est la **variable explicative (prédicteur) $X_1$** associée à l'individu i.
+  - $\beta_0$ est l'**ordonnée à l'origine** (appelée **constante**, "intercept" en anglais), représentant la valeur de $Y$ lorsque $X = 0$.
+  - $\beta_1$ est la **pente** (slope), représentant le **changement de $Y$ pour un changement unitaire de $X_1$**.
+  - $\varepsilon_i$ est un **terme d'erreur qui représente la variation non expliquée par le modèle**. Dans le modèle, on le prend en compte via un terme **aléatoire**, plus exactement via des **réalisations indépendantes d'une variable aléatoire normale, supposée centrée et de variance $\sigma^2$ (homoscédasticité)**[^1] : $\boxed{\varepsilon_i \sim \mathcal{N}(0, \sigma^2)}$
+
+[^1]: L'hypothèse d'homoscédasticité n'est pas systématiquement nécessaire. La variance de $\varepsilon_i$ peut ainsi dépendre de $i$ : $\mathbb{V}\left( \varepsilon_i \right) = \sigma_i^2$, ou de manière plus générale $\mathbb{V}\left( \varepsilon \right) = \Sigma$ où $\Sigma$ est une matrice de variance-covariance quelconque, pas nécessairement diagonale (cf. cours de régression linéaire généralisée en 2A). En revanche, **l'hypothèse de normalité est absolument nécessaire pour construire l'ensemble des tests et intervalles de confiance effectués dans les sorties logicielles**.
+
+
+\vspace{0.15 cm}
+
+On estime ce terme d'erreur aléatoire $\varepsilon_i$ par $\hat{\varepsilon_{i}}= Y_{i}-\hat{Y}_{i}$ (qu'on appelle **résidu**). C'est l'écart entre la vraie valeur $Y_i$ et la valeur prédite $\hat{Y}_{i}$ par le modèle pour l'individu i.
+L'objectif de la régression linéaire est de **trouver les coefficients $\beta_0$ et $\beta_1$ qui minimisent les résidus**. Généralement, on cherche à minimiser l'erreur quadratique moyenne[^2]  (EQM ou MSE, *Mean Square Error* en anglais).
+
+\vspace{0.15cm}
+
+La fonction EQM, évalués aux estimateurs $(\hat{\beta_0} ; \hat{\beta_1})$, s'écrit de la manière suivante :
+$$\mathbb{EQM}(\hat{\beta_0},\hat{\beta_1}) = \frac{1}{n}\sum_{i=1}^{n}{(Y_{i}-\hat{Y_{i}})^2} = \frac{1}{n}\sum_{i=1}^{n}{\left[Y_{i}-(\hat{\beta_0}+\hat{\beta_1}X_{1i}) \right]^2} = \frac{1}{n}\sum_{i=1}^{n}{\hat{\varepsilon_{i}}^2} = \frac{1}{n} \left\lVert \hat{\varepsilon} \right\rVert_{2}^2 := \frac{SCR}{n} $$ avec $$\hat{Y}_{i}=\hat{\beta_0} + \hat{\beta_1} \times X_{1i}   ~~ \text{où} ~~ \hat{\beta_0} ~ \text{et} ~ \hat{\beta_1} ~ \text{sont les estimations de} ~ \beta_0  ~ \text{et} ~ \beta_1 ~ \text{, SCR : somme des carrés résiduelle} ~ $$
+
+[^2]: Plus généralement, en régression, on cherche à minimiser une fonction de coût $l(.,.)$. La fonction MSE en est une, mais il en existe d'autres. On pourrait par exemple utiliser la fonction valeur absolue : $l(Y,\hat{Y}) = \sum_{i=1}^{n}{\lvert Y_{i}-\hat{Y_{i}} \rvert} = \sum_{i=1}^{n}{\lvert \hat{\varepsilon_{i}} \rvert}$.
+
+
+
+Une méthode que vous avez vue en cours de statistiques descriptives est la **méthode des moindres carrés ordinaires** (MCO ou OLS, *Ordinary Least Squared* en anglais). Cette méthode consiste à trouver les coefficients $\beta_0$ et $\beta_1$ qui minimisent la fonction de perte quadratique (telle que l'EQM). Selon cette méthode, on obtient :
+$$\boxed{\hat{\beta_1} = \frac{c_{n,X_1,Y}}{v_{n,X_1}} = \frac{\frac{1}{n}\sum_{i=1}^{n}{(X_{1i}-\bar{X_1}) (Y_{i}-\bar{Y})}}{\frac{1}{n}\sum_{i=1}^{n}{(X_{1i}-\bar{X_1})^2}}}  ~~ \text{et} ~~  \boxed{\hat{\beta_0} = \bar{Y} - \hat{\beta_1} \bar{X_{1}}}$$
+\vspace{0.15cm}
+
+En présence de la constante $\beta_0$, et posant $\text{SCR} := \frac{1}{n}\sum_{i=1}^{n}{(Y_{i}-\hat{Y_{i}})²}$ la somme des carrés résiduelle, $\text{SCE} := \frac{1}{n}\sum_{i=1}^{n}{(\hat{Y_{i}} - \bar{Y})²}$ la somme des carrés expliquée et $\text{SCT} := \frac{1}{n}\sum_{i=1}^{n}{(Y_{i} - \bar{Y})²} = \mathbb{V}(Y)$ la somme des carrés totale, avec $SCT = SCE + SCR$, on peut définir le coefficient de détemrination[^3] :
+
+$$\boxed{R^2 := \frac{SCE}{SCT} := 1 - \frac{SCR}{SCT} \in [0;1]}$$ <!-- ~~\text{et sa version ajustée (pénalisant le nb de paramètres) :}~~ R_a^2 := 1 - \frac{SCR/(n-p-1)}{SCT/n-1} -->
+
+[^3]: On pourra démontrer que, dans le cadre de la régression linéaire simple ($p = 1$ régresseur), $R^2 = \left( r_n(Y;\hat{Y}) \right)^2 = \left( \frac{c_{n,Y,\hat{Y}}}{\sigma_{n,Y} ~\sigma_{n,\hat{Y}}} \right)^2$ où $r_n$ est le coefficient de corrélation linéaire empirique (à valeur dans $[-1;1]$).
+
+:::
+
+
+\newpage
+
+
+### Partie 1 : Régression linéaire simple avec R
+
+1. Importer le jeu de donnees *abstentions.csv*. Ce jeu de données présente les résultats d'abstention aux présidentielles de 2022 ainsi qu'aux européennes de 2019 à l'échelle départementale. Afficher un descriptif des variables disponibles.
+
+
+```{r}
+
+```
+
+2. Convertir toutes les variables en numerique sauf la variable de département. Faites cela avec `dplyr` en utilisant les fonctions `mutate()` et `across()`.
+
+```{r}
+
+```
+
+
+3. On souhaite étudier le **lien entre le niveau d'abstention aux présidentielles de 2022 (variable à expliquer) et le niveau d'abstention aux élections européennes de 2019 (variable explicative)**. Représenter sous forme de graphique la relation entre les deux variables. Cette relation vous semble t-elle linéaire ? Quel indicateur (numérique) pouvez-vous calculer pour identifier une telle relation linéaire ? Combien vaut-il ?
+
+```{r}
+
+```
+
+4. Calculer les coefficients $\hat{\beta_{0}}$ et $\hat{\beta_{1}}$ en utilisant les formules présentées plus haut. Donner l'équation de la droite de régression correpondante.
+
+```{r}
+
+```
+
+
+5. Retrouver ces résultats en utilisant la fonction `lm()` puis exécuter `summary(objet_lm)`. Au passage, évaluer la qualité de la régression au regard du R².
+
+```{r}
+
+```
+
+6. Faire le nuage de points des résidus. Les résidus se récupèrent en utilisant l'attribut residuals de votre objet `lm`.
+
+```{r}
+
+```
+
+
+7) Généralement, on représente plutôt les résidus studentisés. Ces résidus studentisés suivent une loi de Student à $n-p-1$ degrés de liberté (d.d.l) avec $p$ **le nombre de variables explicatives (hors constante)**. Cela permet de **repérer les points aberrants en utilisant les quantiles** $t_{\frac{\alpha}{2}}$ et $t_{1-\frac{\alpha}{2}}$ associés à une telle loi de Student. Compléter/modifier le code suivant pour les représenter avec les quantiles 0.025 et 0.975 ($\alpha = 0.05$).
+
+```{r, eval=FALSE}
+library(MASS) #package calculant les résidus studentisés
+plot(studres(mon_objet_lm)) # représentation des résidus studentisés
+abline(h=...(..., nrow(abstentions)-2)) # Ajout du quantile 0.025 d'une telle loi de Student
+abline(h=q...(0.975, ...)) # Ajout du quantile 0.975 d'une telle loi de Student
+
+```
+
+```{r}
+
+
+```
+
+8. a) Identifier un département particulièrement atypique, c'est-à-dire celui s'écartant le plus du modèle (résidu le plus élevé). De quel département s'agit-il ?
+
+```{r}
+
+```
+
+8. b) Supprimer cette observation de votre table et recalculer les coefficents du modèle en utilisant la fonction `lm()`. Les coefficients ont-ils changé?
+
+```{r}
+
+```
+
+
+
+9. Tracer le nuage de points ainsi que la droite de régression associée à ce dernier modèle. Pour cela modifier le code suivant : 
+
+```{r, eval=FALSE}
+plot(var_a_expliquer~var_explicative, data=mesDonnees)
+abline(objet_lm, col="blue")
+```
+
+
+```{r}
+
+```
+
+<!-- \newpage -->
+
+### Partie 2 : la régression linéaire multiple
+
+On se place désormais dans un cadre général plus large où il y a **plusieurs variables explicatives (disons p variables, en dehors de la constante)**.
+L'équation s'écrit alors :
+
+$$\boxed{Y_i = \beta_0 + \beta_1 X_{1i} + \beta_2 X_{2i} + ... + \beta_p X_{pi} + \varepsilon_i}$$
+
+où :
+
+  - $Y_i$ est la **variable à expliquer** pour l'individu i.
+  - $X_{ji}$ désigne **une variable explicative j associée à l'individu i**.
+  - $\beta_0$ désigne la **constante** du modèle.
+  - $\beta_j$ est le **coefficient associé à la variable $X_j$**.
+  - $\varepsilon_i$ est l'**erreur résiduelle**, qui représente la **variation non expliquée par le modèle**. On suppose à nouveau que $\boxed{\varepsilon_i \sim \mathcal{N}(0, \sigma^2)}$.
+
+On souhaite désormais **modéliser le taux d'abstention aux présidentielles en fonction de l'ensemble des variables disponibles sauf** ces deux variables : le **département** et l'**abstention aux européennes** utilisée en 1ère partie. L'équation s'écrit donc ici :
+\small
+$$ABS\_PRES_i = \beta_0 + \beta_{POP} ~POP_i + \beta_{dens} ~DENS_i + \beta_{solde} ~MIG_i + \beta_{65} ~PART\_65_i + \beta_{ret} ~PART\_RET_i + \beta_{cadres} ~PART\_CAD_i + \varepsilon_i$$
+
+10. Au préalable, retirer de la table toutes les observations qui contiennent des valeurs manquantes. Retirer également la variable d'abstention aux européennes de votre table.
+
+```{r}
+
+```
+
+
+11. L'estimation des coefficients d'une régression linéaire peut s'avérer **instable lorsque des variables sont très fortement corrélées** (vous verrez en 2e année le **problème de multicolinéarité** que nous abordons rapidement ici). De prime abord, identifier 2 variables qui peuvent être très corrélées.
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+```{r, fig.width=5, fig.height=4.5, dpi=300}
+
+```
+
+
+12. a) Utilisez la fonction `lm()` pour modéliser l'abstention aux présidentielles en utilisant **l'ensemble des variables explicatives (sauf celle du département)**. Au vu de la question précédente, vous pouvez également **écarter la variable PART_65PLUS**. Remarque : vous n'êtes pas obligé de renseigner le nom de toutes les variables explicatives. Vous pouvez utiliser la syntaxe suivante : `lm(ABS_PRES_2022 ~ . - PART_65PLUS, data=ma_table)` ou retirer la variable de la table et utiliser : `lm(ABS_PRES_2022 ~ . , data=ma_table)`. Combien vaut le coefficient associé à la part de cadres ? 
+
+```{r}
+
+```
+
+
+::: {.callout-tip title="Construction d'un intervalle de confiance $IC_{1-\alpha}(\beta_j)$ pour chaque coefficient $\beta_j$ associé à $X_j$"}
+
+On peut calculer un intervalle de confiance pour chaque coefficient estimé. **\textcolor{Red}{Sous l'hypothèse de normalité des erreurs, $\varepsilon_i \sim \mathcal{N}(0, \sigma^2)$}**, et comme **la variance $\sigma^2$ est inconnue** [^4], on peut réécrire chaque coefficient sous la forme d'une statistique $T_j$ qui est supposée **suivre une loi de Student à $n-p-1$ degrés de liberté** : 
+$$\boxed{T_j = \frac{\hat{\beta_j} - \beta_j}{\hat{\sigma}(\hat{\beta_j})} \sim \mathcal{T}(n-p-1)}$$ avec $\hat{\sigma}(\hat{\beta_j})$ : l'**erreur standard estimée associée à l'estimation du coefficient $\beta_j$**, que vous retrouvez en sortie de votre modèle ("`Std. Error`").
+
+[^4]: Si la variance $\sigma^2$ était connue, on pourrait utiliser directement la gaussienne $Z_j = \frac{\hat{\beta_j} - \beta_j}{\sigma(\hat{\beta_j})} \sim \mathcal{N}(0, 1)$ où $\sigma(\hat{\beta_j})$ dépend de $\sigma$. En estimant $\sigma^2$ par $\hat{\sigma}_{MCO}^2 := \frac{SCR}{n-p-1}$, on perd la normalité (cf. cours de Stat Inférentielle).
+
+\vspace{0.15cm}
+
+Sous cette hypothèse, en posant $t_{n-p-1,1-\frac{\alpha}{2}}$ le quantile d'ordre $1 - \alpha/2$ d'une $\mathcal{T}(n-p-1)$ :
+
+$$
+\mathbb{P}\left(-t_{n-p-1,1-\frac{\alpha}{2}} \leq T_j \leq t_{n-p-1,1-\frac{\alpha}{2}}\right) = 1 - \alpha ~~\Leftrightarrow~~ \mathbb{P}\left(\hat{\beta_j} - t_{n-p-1,1-\frac{\alpha}{2}} \cdot \hat{\sigma}(\hat{\beta_j}) \leq \beta_j \leq \hat{\beta_j} + t_{n-p-1,1-\frac{\alpha}{2}} \cdot \hat{\sigma}(\hat{\beta_j})\right) = 1 - \alpha.
+$$
+
+\vspace{0.15cm}
+
+L’intervalle de confiance d'ordre $1-\alpha$ pour chaque coefficient $\beta_j$ associé à $X_j$ :
+
+$$
+\boxed{IC_{1-\alpha}(\beta_j) = \left[ \hat{\beta_j} - t_{n-p-1,1-\frac{\alpha}{2}} \cdot \hat{\sigma}(\hat{\beta_j}) ~~;~~ \hat{\beta_j} + t_{n-p-1,1-\frac{\alpha}{2}} \cdot \hat{\sigma}(\hat{\beta_j}) \right]}
+$$
+
+:::
+
+12. b) En utilisant ces formules, calculer les intervalles de confiance au seuil de 95% pour chaque coefficient. Y a-t'il des variables pour lesquelles la valeur nulle (0) est comprise dans l'intervalle de confiance du coefficient ? Que peut-on en déduire pour ces variables ? Pour plus de lisibilité, faites précéder votre calcul du code suivant :
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+
+12. c) Retrouver ces résultats en utilisant la fonction `confint()`.
+
+```{r}
+
+```
+
+
+13. Refaire le modèle en **enlevant la part de cadres des variables explicatives**. Est-ce que des variables **non significatives dans la question précédente deviennent désormais significatives** ?
+
+```{r}
+
+```
+
+
+14. Repartir du modèle de la question 12a et réécrire le modèle **en ne conservant que les variables dont le coefficient est différent de 0 au seuil de confiance 95 %**. 
+```{r}
+
+```
+
+
+
+15. Tracer le nuage de points des résidus studentisés (en ordonnées) en fonction des valeurs prédites par le modèle (en abscisses). Avoir des résidus studentisés permet de **se ramener à une loi paramétrique connue** (dont on connaît les quantiles) et ainsi identifier de possibles **observations aberrantes**. Les résidus studentisés se récupèrent via la fonction `studres(objet_lm)` du package `MASS`. Les valeurs prédites par le modèle se récupèrent avec la fonction : `fitted(objet_lm)`. Ajouter les droites associées aux quantiles $t_{0.975}$ et $t_{0.025}$ d'une loi de Student à $n-p-1$ ddl avec **$p$ le nombre de variables explicatives dans le modèle**. Compléter ou modifier le code suivant :
+
+```{r, eval=FALSE}
+plot(fitted(...), ...(...), ylim=c(-8,8), ylim=c(-3,7),ylab = "résidus studentisés", xlab = "prédictions")
+abline(h=qt(..., nrow(ma_table)-2-1), col="red")
+abline(h=...(..., nrow(ma_table)-2-1), col="red")
+```
+
+```{r}
+
+```
+
+16. Interpréter le coefficient associé à la variable `PART_CADRES`. Vous pouvez vous aider de l'article suivant : [interprétation des coefficents d'une régression linéaire](https://www.parisschoolofeconomics.eu/docs/yin-remi/interpretation-des-coefficients.pdf)
+
+```{r}
+
+```
+
+
+17. Retrouver les intervalles de confiance à 95 % associés aux coefficients du modèle retenu grâce à la fonction `confint()`. Quels sont les intervalles au seuil de confiance 90 % ? Pour **quel niveau de confiance** (en comparant 0.95 et 0.90), l'amplitude des intervalles de confiance est-elle la plus grande ?
+
+```{r}
+
+```
+
+
+
+
+
+
+<!-- \newpage -->
+
+### Ouverture : Ecriture et résolution matricielle
+
+::: {.callout-tip title="Écriture matricielle du modèle de régression linéaire multiple à $p$ régresseurs"}
+
+Le modèle d'une régression linéaire multiple peut s'écrire de la manière suivante : $$Y=X\beta + \varepsilon$$ avec :
+
+  - $Y \in \mathbb{R}^n$ le **vecteur associé à ma variable à prédire**
+  - $X = (\mathbb{1} ~ x_{11} ~...~ x_{1n})^{\intercal} \in \mathcal{M}_{n,p+1}$ la **matrice de mes variables explicatives** à laquelle je rajoute une **1ère colonne composée uniquement de 1 afin d'estimer la constante $\beta_0$** du modèle. S'il y a $n$ observations et $p$ variables explicatives, alors la matrice X sera de dimension ($n$,$p+1$).
+  - $\beta \in \mathbb{R}^{p+1}$ qui désigne le **vecteur des coefficients**
+  - $\varepsilon \in \mathbb{R}^n$ qui désigne le **vecteur centré des erreurs**
+  
+Le vecteur $\beta$ des coefficients associés à chaque variable explicative peut être estimé ainsi : $$\boxed{\hat{\beta}= (X^TX)^{-1}X^TY}$$
+
+:::
+
+
+
+
+
+18. Retrouver les estimations des coefficients du modèle de la question 14 en utilisant cette écriture matricielle. Pour inverser une matrice, on utilise la fonction `solve()`. Pour transposer une matrice, on utilise la fonction `t()`. On rappelle également que le produit matriciel se fait via l'opérateur `%*%`.
+
+```{r}
+
+```
+
+
+
+
+<!-- \newpage -->
+
+### Parenthèse : retour sur le problème de colinéarité
+
+```{r}
+
+```
+
