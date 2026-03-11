@@ -261,6 +261,8 @@ abst_sansvm <- num_abst_sansmayotte %>%
 
 ```{r}
 
+
+
 ```
 
 
@@ -270,13 +272,17 @@ abst_sansvm <- num_abst_sansmayotte %>%
 
 ```{r, fig.width=5, fig.height=4.5, dpi=300}
 
+corrplot::corrplot(cor (abst_sansvm[,-1]),
+                   method = 'number',
+                   order = 'hclust', addrect = 2)
+
 ```
 
 
 12. a) Utilisez la fonction `lm()` pour modéliser l'abstention aux présidentielles en utilisant **l'ensemble des variables explicatives (sauf celle du département)**. Au vu de la question précédente, vous pouvez également **écarter la variable PART_65PLUS**. Remarque : vous n'êtes pas obligé de renseigner le nom de toutes les variables explicatives. Vous pouvez utiliser la syntaxe suivante : `lm(ABS_PRES_2022 ~ . - PART_65PLUS, data=ma_table)` ou retirer la variable de la table et utiliser : `lm(ABS_PRES_2022 ~ . , data=ma_table)`. Combien vaut le coefficient associé à la part de cadres ? 
 
 ```{r}
-
+lm(data = abst_sansvm, ABS_PRES_2022 ~ . - PART_65PLUS)
 ```
 
 
@@ -309,6 +315,8 @@ $$
 
 ```{r}
 
+option(scipen = 5)
+bornes_inf <- model
 ```
 
 
@@ -328,13 +336,21 @@ $$
 13. Refaire le modèle en **enlevant la part de cadres des variables explicatives**. Est-ce que des variables **non significatives dans la question précédente deviennent désormais significatives** ?
 
 ```{r}
+model_multiple2 <- lm(ABS_PRES_ ~. - PART_CADRES - DEP, data = abst_sansvm)
+summary(model_multiple2)
+confint(model_multiple2)
+```
 
+```{r}
+car::vif(model_multiple1)
 ```
 
 
 14. Repartir du modèle de la question 12a et réécrire le modèle **en ne conservant que les variables dont le coefficient est différent de 0 au seuil de confiance 95 %**. 
 ```{r}
-
+model_multiple3 <- lm(ABS_PRES_2022 ~ PARTT_CADRES + PART_RETRAITES, data = abst_sansvm)
+summary(model_multiple3)
+car::vif(model_multiple3)
 ```
 
 
