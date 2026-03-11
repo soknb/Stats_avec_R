@@ -51,9 +51,9 @@ Travaillez soit sur le [cluster R](https://clust-n1.ensai.fr/){target="_blank"} 
 
 library(tidyverse)
 library(MASS)
-# install.packages("ellipse")
+#install.packages("ellipse")
 library(ellipse)
-# install.packages("corrplot")
+#install.packages("corrplot")
 library(corrplot)
 ```
 
@@ -123,11 +123,19 @@ $$\boxed{R^2 := \frac{SCE}{SCT} := 1 - \frac{SCR}{SCT} \in [0;1]}$$ <!-- ~~\text
 
 ```{r}
 
+
+abst <- read.csv2('abstentions.csv') #Quand il y a un séparateur utilsier directement csv2
+summary(abst)
+
+
 ```
 
 2. Convertir toutes les variables en numerique sauf la variable de département. Faites cela avec `dplyr` en utilisant les fonctions `mutate()` et `across()`.
 
 ```{r}
+
+num_abst <- abst %>%  
+  mutate(across(.cols = -DEP, .fns = as.numeric))
 
 ```
 
@@ -136,11 +144,20 @@ $$\boxed{R^2 := \frac{SCE}{SCT} := 1 - \frac{SCR}{SCT} \in [0;1]}$$ <!-- ~~\text
 
 ```{r}
 
+plot(data = num_abst, ABS_EUR_2019~ABS_PRES_2022 )
+
+
 ```
 
 4. Calculer les coefficients $\hat{\beta_{0}}$ et $\hat{\beta_{1}}$ en utilisant les formules présentées plus haut. Donner l'équation de la droite de régression correpondante.
 
 ```{r}
+
+
+B1 <- cov(num_abst$ABS_EUR_2019, num_abst$ABS_PRES_2022)/ var(num_abst$ABS_EUR_2019) #Sur R cov et var sont corrigé en fact 1/n-1
+
+B0 <- num_abst$ABS_PRES_2022 - B1*num_abst$ABS_EUR_2019
+
 
 ```
 
@@ -149,11 +166,15 @@ $$\boxed{R^2 := \frac{SCE}{SCT} := 1 - \frac{SCR}{SCT} \in [0;1]}$$ <!-- ~~\text
 
 ```{r}
 
+objet_lm <- lm(data = num_abst, ABS_PRES_2022~ABS_EUR_2019)
+summary(objet_lm)
+
 ```
 
 6. Faire le nuage de points des résidus. Les résidus se récupèrent en utilisant l'attribut residuals de votre objet `lm`.
 
 ```{r}
+plot(objet_lm$residuals)
 
 ```
 
@@ -162,9 +183,9 @@ $$\boxed{R^2 := \frac{SCE}{SCT} := 1 - \frac{SCR}{SCT} \in [0;1]}$$ <!-- ~~\text
 
 ```{r, eval=FALSE}
 library(MASS) #package calculant les résidus studentisés
-plot(studres(mon_objet_lm)) # représentation des résidus studentisés
-abline(h=...(..., nrow(abstentions)-2)) # Ajout du quantile 0.025 d'une telle loi de Student
-abline(h=q...(0.975, ...)) # Ajout du quantile 0.975 d'une telle loi de Student
+plot(studres(objet_lm)) # représentation des résidus studentisés
+abline(h = qt(0.025, df = nrow(num_abst)-1-1)) # Ajout du quantile 0.025 d'une telle loi de Student
+abline(h=qt(0.975, df = nrow(num_abst)-1-1)) # Ajout du quantile 0.975 d'une telle loi de Student
 
 ```
 
@@ -177,11 +198,17 @@ abline(h=q...(0.975, ...)) # Ajout du quantile 0.975 d'une telle loi de Student
 
 ```{r}
 
+num_abst[which.max(objet_lm$residuals),]
+
 ```
 
 8. b) Supprimer cette observation de votre table et recalculer les coefficents du modèle en utilisant la fonction `lm()`. Les coefficients ont-ils changé?
 
 ```{r}
+
+num_abst_sansmayotte <- num_abst[1:100,]
+lm_sansmayotte <- lm(data = num_abst_sansmayotte,ABS_PRES_2022~ABS_EUR_2019)
+summary(lm_sansmayotte)
 
 ```
 
@@ -190,8 +217,8 @@ abline(h=q...(0.975, ...)) # Ajout du quantile 0.975 d'une telle loi de Student
 9. Tracer le nuage de points ainsi que la droite de régression associée à ce dernier modèle. Pour cela modifier le code suivant : 
 
 ```{r, eval=FALSE}
-plot(var_a_expliquer~var_explicative, data=mesDonnees)
-abline(objet_lm, col="blue")
+plot(ABS_PRES_2022~ABS_EUR_2019, data=num_abst_sansmayotte)
+abline(lm_sansmayotte, col="blue")
 ```
 
 
@@ -223,6 +250,9 @@ $$ABS\_PRES_i = \beta_0 + \beta_{POP} ~POP_i + \beta_{dens} ~DENS_i + \beta_{sol
 10. Au préalable, retirer de la table toutes les observations qui contiennent des valeurs manquantes. Retirer également la variable d'abstention aux européennes de votre table.
 
 ```{r}
+
+abst_sansvm <- num_abst_sansmayotte %>% 
+  filter(!if_any(.cols = everything(), .fns = is.na))
 
 ```
 
