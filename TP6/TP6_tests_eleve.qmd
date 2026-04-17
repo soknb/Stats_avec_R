@@ -1,0 +1,932 @@
+---
+title: "TP6 - Statistique avec R - Tests" 
+# description: ""  # Description ou objectif du document
+format:
+  pdf:
+    documentclass: article
+    # mainfont: "Times New Roman"
+    # number-sections: true # Numéroter les sections du document
+    # number-depth: 3
+    # toc: true     Ajout un sommaire
+    # toc-depth: 3   Profondeur de numérotation/TOC
+    header-includes: |
+      \usepackage[bottom]{footmisc}
+    text: |
+      \usepackage[dvipsnames]{xcolor}
+      \usepackage{booktabs}
+      \usepackage{hyperref}
+      \usepackage{enumitem}
+lang: fr
+# from: markdown+emoji  # Format d'entrée pour le document (markdown avec support des emojis)
+fontsize: 10pt
+papersize: a4
+geometry: top=1.5cm, bottom=1.5cm, left=2.5cm, right=2.5cm
+# bibliography: references.bib
+link-citations: true 
+nocite: "@*"
+editor: 
+  markdown: 
+    wrap: 72
+---
+
+------------------------------------------------------------------------
+
+## **OBJECTIFS DU TP:**
+
+Le but de ce TP est de s'initier à l'utilisation de quelques tests
+statistiques.
+
+------------------------------------------------------------------------
+
+Travaillez soit sur le [cluster
+R](https://clust-n1.ensai.fr/){target="_blank"} soit sur le
+[Datalab/Onyxia](https://datalab.sspcloud.fr/){target="_blank"}. Vous
+pouvez aussi librement choisir de coder sur un document Quarto `.qmd`
+(au sein de *chunks* donc) ou sur un scrpit `.R` classique.
+
+**Commencer par charger votre Rprojet `Stats_avec_R` créé au TP1**, puis
+affecter un nouveau dossier "TP6 tests". Pour importer vos données,
+cliquez sur le bouton `Upload` situé dans l'onglet `Files`, en dessous
+de votre environnement.
+
+```{r, results="hide", message = FALSE, warning = FALSE, error=TRUE}
+# Chargement des packages nécessaires
+library(tidyverse)
+library(MASS)
+library(goftest)
+library(readxl)
+install.packages("ellipse")
+library(ellipse)
+install.packages("corrplot")
+library(corrplot)
+install.packages("car")
+library(car)
+```
+
+------------------------------------------------------------------------
+
+## Exercice 1
+
+**Première partie : retour sur la régression linéaire (à** $p$ variables
+explicatives)
+
+::: {.callout-tip title="Quelques rappels sur la régression linéaire multiple à $p$ régresseurs"}
+La régression linéaire est une méthode d'analyse statistique utilisée
+pour modéliser une variable à expliquer $Y$ en fonction de plusieurs
+variables explicatives (disons $p$ variables, en dehors de la
+constante).
+
+\vspace{0.10 cm}
+
+La forme générale de la régression linéaire multiplie est représentée
+par l'équation :
+
+$$\boxed{Y_{i} = \beta_0 + \beta_1 \cdot X_{i1} + \beta_2 \cdot X_{i2} + ... + \varepsilon_i}$$
+
+où :
+
+-   $Y_i$ est la **variable à expliquer** (cible) pour l'individu i.
+-   $X_{ij}$ désigne la $j$-ième **variable explicative (prédicteur)**
+    $X_j$ associée à l'individu i.
+-   $\beta_0$ est la **constante** du modèle, représentant **la valeur
+    de** $Y$ lorsque $X = 0$.
+-   $\beta_j$ déisgne le **coefficient associé à la variable** $X_j$,
+    représentant le **changement de** $Y$ pour un changement unitaire de
+    $X_j$.
+-   $\varepsilon_i$ est un **terme d'erreur qui représente la variation
+    non expliquée par le modèle**. Dans le modèle, on le prend en compte
+    via un terme **aléatoire**, plus exactement via des **réalisations
+    indépendantes d'une variable aléatoire normale, supposée centrée et
+    de variance** $\sigma^2$ (homoscédasticité) :
+    $\boxed{\varepsilon_i \overset{i.i.d}{\sim} \mathcal{N}(0, \sigma^2)}$
+
+\vspace{0.10cm}
+
+Les coefficients $\beta_j$ associés à chaque variable explicative $X_j$
+peuvent être estimés par **MCO**. On obtient ainsi les **estimateurs
+sans biais** $\hat{\beta_j}$ qui auront quelques bonnes propriétés
+**sous l'hypothèse de normalité** des $\varepsilon_i$ (notamment
+normalité et efficacité).
+
+<!-- Le modèle d'une régression linéaire multiple peut aussi s'écrire de la manière suivante : $$Y=X\beta + \varepsilon$$ avec : -->
+
+<!--   - $Y \in \mathbb{R}^n$ le **vecteur associé à ma variable à prédire** -->
+
+<!--   - $X = (\mathbb{1} ~ x_{11} ~...~ x_{1n})^{\intercal} \in \mathcal{M}_{n,p+1}$ la **matrice de mes variables explicatives** à laquelle je rajoute une **1ère colonne composée uniquement de 1 afin d'estimer la constante $\beta_0$** du modèle. S'il y a $n$ observations et $p$ variables explicatives, alors la matrice X sera de dimension ($n$,$p+1$). -->
+
+<!--   - $\beta \in \mathbb{R}^{p+1}$ qui désigne le **vecteur des coefficients** -->
+
+<!--   - $\varepsilon \in \mathbb{R}^n$ qui désigne le **vecteur centré des erreurs** -->
+
+<!-- Le vecteur $\beta$ des coefficients associés à chaque variable explicative peut alors être estimé ainsi : $$\boxed{\hat{\beta}= (X^TX)^{-1}X^TY}$$ -->
+:::
+
+::: {.callout-tip title="Construction d'un intervalle de confiance $IC_{1-\\alpha}(\\beta_j)$ pour chaque coefficient $\\beta_j$ associé à $X_j$"}
+On peut calculer un intervalle de confiance pour chaque coefficient
+estimé $\hat{\beta_j}$.
+\textcolor{Red}{Sous l'hypothèse de normalité des erreurs, $\varepsilon_i \sim \mathcal{N}(0, \sigma^2)$},
+et comme **la variance** $\sigma^2$ est inconnue [^1], on peut réécrire
+chaque coefficient sous la forme d'une statistique $T_j$ qui est
+supposée **suivre une loi de Student à** $n-p-1$ degrés de liberté :
+
+\vspace{-0.25cm}
+
+$$\boxed{T_j = \frac{\hat{\beta_j} - \beta_j}{\hat{\sigma}(\hat{\beta_j})} \sim \mathcal{T}(n-p-1)}$$
+avec $\hat{\sigma}(\hat{\beta_j})$ : l'**erreur standard estimée
+associée à l'estimation du coefficient** $\beta_j$, que vous retrouvez
+en sortie de votre modèle ("`Std. Error`").
+
+\vspace{0.10cm}
+
+Sous cette hypothèse, en posant $t_{n-p-1,1-\frac{\alpha}{2}}$ le
+quantile d'ordre $1 - \alpha/2$ d'une $\mathcal{T}(n-p-1)$, on obtient
+**l’intervalle de confiance d'ordre** $1-\alpha$ pour chaque coefficient
+$\beta_j$ associé à $X_j$ :
+
+\vspace{-0.55cm}
+
+$$
+\mathbb{P}\left(|T_j| \leq t_{n-p-1,1-\frac{\alpha}{2}}\right) = 1 - \alpha ~\Rightarrow~ \boxed{IC_{1-\alpha}(\beta_j) = \left[ \hat{\beta_j} - t_{n-p-1,1-\frac{\alpha}{2}} \cdot \hat{\sigma}(\hat{\beta_j}) ~~;~~ \hat{\beta_j} + t_{n-p-1,1-\frac{\alpha}{2}} \cdot \hat{\sigma}(\hat{\beta_j}) \right]}
+$$
+<!-- \mathbb{P}\left(-t_{n-p-1,1-\frac{\alpha}{2}} \leq T_j \leq t_{n-p-1,1-\frac{\alpha}{2}}\right) -->
+<!-- Leftrightarrow \mathbb{P}\left(\hat{\beta_j} - t_{n-p-1,1-\frac{\alpha}{2}} \cdot \hat{\sigma}(\hat{\beta_j}) \leq \beta_j \leq \hat{\beta_j} + t_{n-p-1,1-\frac{\alpha}{2}} \cdot \hat{\sigma}(\hat{\beta_j})\right) = 1 - \alpha. -->
+:::
+
+[^1]: Si la variance $\sigma^2$ était connue, on pourrait utiliser
+    directement la gaussienne
+    $Z_j = \frac{\hat{\beta_j} - \beta_j}{\sigma(\hat{\beta_j})} \sim \mathcal{N}(0, 1)$
+    où $\sigma(\hat{\beta_j})$ dépend de $\sigma$. En estimant
+    $\sigma^2$ par
+    $\hat{\sigma}_{MCO}^2 := \frac{1}{n-p-1} ~ \sum_{i=1}^{n} (y_i - \hat{y_i})^2$,
+    on perd la normalité (cf. cours de Stat Inférentielle).
+
+::: {.callout-tip title="**Test de significativité, au risque $\\alpha$, du coefficient $\\beta_j$ associé à $X_j$**"}
+\textcolor{ForestGreen}{Formulation des hypothèses du test}
+
+\vspace{0.10cm}
+
+Pour chaque coefficient $\beta_j$, une hypothèse nulle $(H_0)$ est
+formulée comme suit : $\boxed{H_0 : \beta_j = 0}$
+
+Sous cette hypothèse nulle, le coefficient associé à la variable
+explicative $X_j$ est nul, et donc **cette variable n’a aucun effet
+significatif sur la variable à expliquer** $Y$.
+
+\vspace{0.10cm}
+
+L’hypothèse alternative est : $\boxed{(H_1) : \beta_j \neq 0}$.
+
+Il s'agit donc d'un **test bilatéral** (car 2 zones de rejet de $H_0$ :
+lorsque le coefficient est négatif et très différent de 0, et lorsque le
+coefficient est positif et très différent de 0).
+<!-- composition des 2 tests unilatéraux gauche ($(H_1) : \beta_j < 0$) et droit ($(H_1) : \beta_j > 0$) -->
+
+Si $(H_0)$ est rejetée au risque $\alpha$, cela indique que $X_j$ a un
+effet significatif sur $Y$.
+
+\vspace{0.20cm}
+
+\textcolor{ForestGreen}{La statistique de test}
+
+\vspace{0.10cm}
+
+Pour tester $(H_0) : \beta_j = 0 ~\text{vs.}~ (H_1) : \beta_j \neq 0$,
+on utilise la statistique $T_j$ mentionnée précédemment. Sous
+l’hypothèse nulle $(H_0)$, $T_j$ suit une loi de Student à $n - p - 1$
+degrés de liberté, où $n$ est le nombre d’observations et $p$ est le
+nombre de variables explicatives (sans compter la constante) :
+
+\vspace{-0.25cm}
+
+$$\boxed{T_j = \frac{\hat{\beta_j} - \beta_j}{\hat{\sigma}(\hat{\beta_j})} \overset{(H_0)}{=} \frac{\hat{\beta_j}}{\hat{\sigma}(\hat{\beta_j})}  \overset{(H_0)}{\sim} \mathcal{T}(n-p-1)}$$
+
+<!-- \vspace{0.25cm} -->
+
+\textcolor{ForestGreen}{Règle de décision : via la p-valeur ou la zone de rejet $\mathcal{R}_{\alpha}^{(H_0)}$}
+
+\vspace{0.10cm}
+
+<!-- (comparaison de $t_j = T_{j,obs}$ à $t_{n-p-1,1-\frac{\alpha}{2}}$) -->
+
+<!-- **Calcul des p-values et comparaison avec le seuil de significativité $\alpha$** -->
+
+En calculant $t_j = T_{j,obs}$ à partir de l'échantillon observé
+$(y_i ; x_{ij})_{1 \leq i \leq n, 1 \leq j \leq p}$, on peut au choix :
+
+-   calculer la zone de rejet $\mathcal{R}_{\alpha}^{(H_0)}$ en
+    comparant $t_j$ au quantile $t_{n-p-1,1-\frac{\alpha}{2}}$ : si
+    $t_j \in \mathcal{R}_{\alpha}^{(H_0)} = \left\{ |T_j| >  t_{n-p-1,1-\frac{\alpha}{2}} \right\} = \mathbb{R} \setminus IC_{1-\alpha}(\beta_j)$,
+    on rejettera $(H_0)$ au risque $\alpha$, ie. on "accepterait" donc
+    l'hypothèse $(H_1)$ d'**effet significatif de la variable** $X_j$
+    sur la réponse $Y$ au risque $\alpha$.
+
+-   calculer la **p-valeur** $\alpha^{*}$ associée au test bilatéral :
+    c'est **la plus petite valeur pour laquelle on rejettera** $(H_0)$.
+    Mathématiquement :
+    $\alpha^{*} = \underset{\alpha \in [0;1]}{\text{inf}} \left\{ T_j \in \mathcal{R}_{\alpha}^{(H_0)} \right\}$.
+    La p-valeur se calcule en imposant l'égalité au sein de
+    $\mathcal{R}_{\alpha}^{(H_0)}$ : $\alpha^{*}$ tq
+    $\boxed{|t_j| =  t_{n-p-1,1-\frac{\alpha^{*}}{2}} = F^{-1}_{\mathcal{T}(n-p-1)}(1-\frac{\alpha^{*}}{2})} \Rightarrow \alpha^{*} = 2 \cdot \left[1-F_{\mathcal{T}(n-p-1)}(t_j)\right] = 2 \cdot \mathbb{P}_{(H_0)}(T_j > |t_j|)$
+    avec $T_j \overset{(H_0)}{\sim} \mathcal{T}(n-p-1)$.
+
+<!-- Elle correspond à la probabilité d’observer une valeur de $|T_j|$ au moins aussi grande (en valeur absolue) que celle calculée $|t_j|$, sous l’hypothèse nulle : $\alpha^{*} = 2 \cdot \mathbb{P}_{(H_0)}(T_j > |t_j|), ~\text{avec}~ T_j \overset{(H_0)}{\sim} \mathcal{T}(n-p-1)$. -->
+
+\vspace{0.20cm}
+
+En pratique, après avoir fixé le risque $\alpha$ de première espèce, on
+préféra très souvent utiliser la p-valeur (via le calcul de
+$\alpha^{*}$) comme règle de décision, car elle apporte bien plus
+d'information que de déterminer la zone de rejet
+$\mathcal{R}_{\alpha}^{(H_0)}$ qui ne donnera que la décision pour la
+seule valeur du risque $\alpha$ choisi. Pour la p-valeur $\alpha^{*}$,
+plus petite valeur $\alpha$ pour laquelle on rejettera $(H_0)$ :
+
+-   Si $\alpha^{*} \leq \alpha$, on rejette $(H_0)$ : cela signifie que
+    $\beta_j$ est significativement différent de 0.
+-   Si $\alpha^{*} > \alpha$, on ne peut pas rejetter $(H_0)$, ce qui
+    indique que $\beta_j$ n’est pas significativement différent de 0, et
+    donc que **la variable** $X_j$ n'a pas d'effet significatif sur la
+    réponse $Y$.
+
+<!-- Par exemple, avec un seuil de $\alpha = 0.05$ : -->
+
+<!-- - Si $\text{p-value} \leq 0.05$, $\beta_j$ est significatif. -->
+
+<!-- - Sinon, $\beta_j$ n’est pas significatif. -->
+
+<!-- Dans les sorties R, la significativité des coefficients s'interprète de la manière suivante : -->
+
+<!-- - *** = pvalue<0.001 très significatif (= très significativement différent de 0) -->
+
+<!-- - ** = pvalue significative au seuil de 1% -->
+
+<!-- - \* = significatif de seuil de 5% -->
+
+<!-- - . =  significatif de seuil de 10% -->
+
+<!-- - pas d'étoile = pas significatif au seuil de 10% -->
+:::
+
+## Exercice 1
+
+Reprenez les données d'abstentions du précédent TP et lancez le code
+suivant :
+
+```{r, warning=FALSE}
+library(dplyr)
+
+abstentions_sans_vm <- read.csv2("abstentions.csv")  %>%
+  mutate(across(.cols = -1, .fns = as.numeric)) %>% # warning : 6 NA introduced by coercion
+  filter(if_all(.cols = everything(), .fns = ~!is.na(.))) %>% 
+  dplyr::select(-ABS_EUR_2019)
+```
+
+0.  Utilisez la fonction `lm()` pour modéliser l'abstention aux
+    présidentielles en utilisant l'ensemble des variables explicatives
+    (**sauf celle du département**). Quelles variables semblent être
+    explicatives de l'abstention ? On considèrera qu'une variable est
+    explicative si sa $p-value < 0.05$.
+
+```{r}
+
+model0<- lm(data = abstentions_sans_vm, ABS_PRES_2022~ . -DEP)
+summary(model0)
+```
+
+1.  On rappelle que l'estimation des coefficients peut être délicate
+    lorsque **certaines variables explicatives sont corrélées entre
+    elles**. Refaites le même modèle en retirant la variable
+    `PART_65PLUS`. Remarque : vous n'êtes pas obligés de renseigner le
+    nom de toutes les variables explicatives. Vous pouvez utiliser la
+    syntaxe suivante :
+    `lm(ABS_PRES_2022 ~ . - PART_65PLUS, data=ma_table)` ou retirer la
+    variable de la table et utiliser :
+    `lm(ABS_PRES_2022 ~ . , data=ma_table)`. Y a-t-il des changements
+    dans la significativité des coefficients ?
+
+```{r}
+
+model1 <- lm(ABS_PRES_2022~ . - PART_65PLUS - DEP, data = abstentions_sans_vm)
+summary(model1)
+```
+
+estimate part retraité : -1.16 -\> Plus il y a de retraité moins il y a
+d'abstention
+
+2.  Calculer les `p-values` associés aux coefficients de ce modèle en
+    utilisant les formules de rappels de l'énoncé. Pour cela,
+    modifier/compléter le code suivant :
+
+```{r, eval=FALSE}
+t_values <- model0$coefficients / summary(model0)$coefficients[,"Std. Error"]
+# Nombre de degrés de liberté
+n <- nrow(absention_sans_vm)  # Nombre d'observations
+p <- 5    # Nombre de variables explicatives (hors constante)
+ddl <- n-p-1      # Degrés de liberté
+
+# Calcul des p-values
+p_values <- 2*(1-pt(abs(t_values), df = ddl))
+p_values
+```
+
+On prend p = 5 parce qu'on garde densite_pop, possible de l'enlever
+(discutable)
+
+```{r}
+
+```
+
+::: {.callout-tip title="**Test F de validité globale du modèle : $(H_0) : \\beta_1 = \\beta_2 = ... = \\beta_p = 0, 1 \\leq j \\leq p$**"}
+Le **test de validité globale du modèle, ou encore test de
+significativité globale des variables explicatives**, consiste à tester
+l'hypothèse nulle de **nullité simultanée de l'ensemble des
+coefficients** $\beta_j$ associés aux variables $X_j$. L'hypothèse
+alternative est : au moins un des coefficients est différent de 0.
+Autrement dit, on cherche à savoir si le modèle est **significativement
+différent de la constante** $\beta_0$. Si ce n'est pas le cas, cela
+indiquerait que les covariables n'ont aucune influence sur la variable
+réponse $Y$. À risque $\alpha$ fixé, la formulation du test est la
+suivante :
+
+\vspace{-0.20cm}
+
+$$\boxed{(H_0) : \beta_1 = \beta_2 = ... = \beta_p = 0, 1 \leq j \leq p  ~~\text{vs.}~~  (H_1) :\exists ~ j \neq l, \beta_j \neq \beta_l}$$
+
+La statistique de test utilisée correspond à celle **du test de Fisher**
+(*F-statistic*), notamment utilisée pour tester l'égalité des variances,
+qui suivra une loi de Fisher de paramètres $(p,n-p-1)$ sous $H_0$ :
+
+\vspace{-0.20cm}
+
+$$F = \frac{SCE/p}{SCR/(n-p-1)} = \frac{n-p-1}{p} \frac{R^2}{1 - R^2} \overset{(H_0)}{\sim} \mathcal{F}(p ; n-p-1)$$
+
+La `p-valeur` du test est donnée par :
+$\alpha^{*} = 1-F_{\mathcal{F}(p ; n-p-1)}(F_{obs}) = \mathbb{P}_{(H_0)}(F > F_{obs})$
+où $F_{obs}$ est la valeur de la statistique observée sur l'échantillon,
+avec $F \overset{(H_0)}{\sim} \mathcal{F}(p ; n-p-1)$.
+:::
+
+3.  Tout en bas de la sortie `summary` de la question 1, vous avez dû
+    voir une `p-value` à côté d'une "*F-statistic*". À vous de
+    retrouver, au vu de la sortie, la `p-value` associée à ce test, en
+    utilisant la fonction `pf()`. Concluez : le modèle actuel est-il
+    meilleur que le modèle "nul" (modèle uniquement constitué de la
+    constante) ?
+
+```{r}
+
+# Nombre de degrés de liberté
+n <- nrow(abstentions_sans_vm)       # Nombre d'observations
+p <- 5    # Nombre de variables explicatives (hors constante)
+ddl <- n-p-1      # Degrés de liberté
+model0_r2 <- summary(model0)$r.squared
+F_obs <- ((n-p-1)*model0_r2) / (p*(1 - model0_r2))
+
+# Calcul des p-values
+p_value_Fisher <- 1 - pf(q = F_obs, df1 = p, df2 = ddl)
+p_value_Fisher
+
+```
+
+4.  La variable de `SOLDE_MIGRATOIRE` ne ressortait pas toujours comme
+    significative pour expliquer l'abstention. On rappelle que le solde
+    migratoire ne fait pas référence à la nationalité : c'est **la
+    différence entre mes nouveaux arrivants dans le département et mes
+    sortants**. Faites un nuage de points pour représenter la relation
+    entre ces deux variables puis calculer le **coefficient de
+    corrélation linéaire (empirique)**[^2] $\hat{\rho_n}$ de Pearson.
+
+[^2]: **Les versions empiriques** des statistiques que vous calculez
+    sont des **estimateurs, calculés à partir des données/de
+    l'échantillon**. Leurs versions théoriques sont des quantités non
+    calculables en pratique car généralement inconnues, représentant la
+    **population générale** ciblée.
+
+```{r}
+
+plot(data = abstentions_sans_vm, SOLDE_MIGRATOIRE~ABS_PRES_2022)
+pearson <- cor.test(abstentions_sans_vm$SOLDE_MIGRATOIRE, abstentions_sans_vm$ABS_PRES_2022, method = "spearman")
+pearson
+```
+
+::: {.callout-tip title="**Test de corrélation linéaire de Pearson : $(H_0) : \\rho(X;Y) = 0$ vs. $(H_1) : \\rho(X;Y) \\neq 0$**"}
+**Formulation du test** : $(H_0) : \rho(X;Y) = 0$ (pas de corrélation
+linéaire entre les deux variables) vs. $(H_1) : \rho(X;Y) \neq 0$
+(existence d'une corrélation linéaire entre les deux variables).
+
+\vspace{0.10cm}
+
+Ici, $\rho(X;Y) = \frac{cov(X;Y)}{\sigma(X) ~ \sigma(Y)} \in [-1;1]$
+représente le coefficient de corrélation de Pearson dans la **population
+générale**. À partir de $n$-échantillon, on l'estime par le coefficient
+de corrélation **empirique** :
+
+\vspace{-0.20cm}
+
+$$\boxed{\hat{\rho_n} := \hat{\rho_n}(x;y) = \frac{c_{n,x,y}}{\sigma_{n,x} ~ \sigma_{n,y}} = \frac{\frac{1}{n}\sum_{i=1}^{n}{(x_{i}-\bar{x_n}) (y_{i}-\bar{y_n})}}{\sqrt{\frac{1}{n} \sum_{i=1}^{n}{(x_{i}-\bar{x_n})^2}} \sqrt{\frac{1}{n} \sum_{i=1}^{n}{(y_{i}-\bar{y_n})^2}}} \in [-1;1]}$$
+
+**Statistique de test** :
+
+\vspace{-0.20cm}
+
+$$T_\rho = \sqrt{n - 2} ~\frac{\hat{\rho_n} - \rho}{\sqrt{1 - \hat{\rho_n}^2}} \overset{(H_0)}{=} \sqrt{n - 2} ~\frac{\hat{\rho_n}}{\sqrt{1 - \hat{\rho_n}^2}} \overset{(H_0)}{\sim} \mathcal{T}(n-2)$$
+
+**Règle de décision** :
+$\alpha^{*} = 2 \cdot \left[1-F_{\mathcal{T}(n-2)}(t_{\rho})\right] = 2 \cdot \mathbb{P}_{(H_0)}(T_\rho > |t_{\rho}|)$
+avec $T_\rho \overset{(H_0)}{\sim} \mathcal{T}(n-2)$.
+:::
+
+5.  On se demande si la valeur calculée précédemment $\hat{\rho_n}$ est
+    significativement différente de 0. Utiliser la fonction `cor.test()`
+    pour effectuer le test de corrélation de Pearson. Quel est le risque
+    de rejeter $(H_0)$ à tort ? S'agit-il d'un test bilatéral ?
+
+```{r}
+
+```
+
+6.  Retrouver les résultats obtenus avec la fonction `cor.test()` en
+    calculant vous même la statistique de test $t_\rho$ et la `p-value`
+    $\alpha^{*}$ associée (comme si la fonction `cor.test()` n'existait
+    pas).
+
+```{r}
+
+```
+
+7.  On se demande s'il existe un lien non linéaire entre ces deux
+    variables. On se propose d'utiliser le **test de rangs de
+    Spearman**. Vous trouverez une présentation du test **en fin de
+    sujet**. Implémentez ce test avec la fonction `cor.test()`. Que
+    peut-on conclure ?
+
+```{r}
+
+```
+
+------------------------------------------------------------------------
+
+\newpage
+
+## Exercice 2
+
+Au cours de la séance de TP4 (sur l'inférence statistique), nous avons
+travaillé sur la table `quine` de la library `MASS`. Nous supposions
+notamment que la variable `Days` (jours d'absences dans un établissement
+scolaire) suivait une loi exponentielle de paramètre
+$\hat{\lambda} = 1/\bar{X}$. On souhaite **tester si la distribution de
+la variable `Days` suit une loi exponentielle de paramètre**
+$\lambda=0.06$. Commencer par charger les données en lançant la commande
+suivante :
+
+```{r}
+library(MASS) ; data(quine)
+str(quine)
+```
+
+On cherche à savoir si la variable `Days` suit une loi exponentielle de
+paramètre 0.06.
+
+1.  Implémenter le **test de Kolmogorov-Smirnov** à l'aide de la
+    fonction `ks.test()`. Vous trouverez une présentation de ce test
+    **en fin de sujet**.
+
+```{r}
+ks.test(quine$Days, "pexp", rate = 0.06)
+```
+
+2.  Le test de Kolmogorov-Smirnov peut être **sensible aux valeurs
+    abbérantes puisque sa statistique de test repose sur une valeur
+    locale (la différence maximale)**. On propose donc d'utiliser le
+    **test de Cramer-Von Mises qui considère l'écart entre la fonction
+    de répartition théorique et la fonction de répartition empirique sur
+    l'ensemble des valeurs**. Vous trouverez une présentation **en fin
+    de sujet**. Utiliser la fonction `cvm.test()` du package `goftest`
+    pour **tester si la série suit bien une loi exponentielle de
+    paramètre 0.06**.
+
+```{r}
+cvm.test(quine$Days, 'pexp', rate = 0.06)
+```
+
+3.  Pour avoir un 3e avis, on propose maintenant de faire le **test
+    d'Anderson-Darling qui permet d'identifier des écarts dans les
+    queues de distributions**. Pour cela, utiliser la fonction
+    `ad.test()` du package `goftest` sur le même modèle que pour la
+    question précédente. Vous trouverez une présentation du test **en
+    fin de sujet**.
+
+```{r}
+ad.test(quine$Days, 'pexp', rate = 0.06)
+```
+
+\newpage
+
+## Exercice 3
+
+On s'intéresse aux notes d'anciens étudiants de l'Ensai au cours de
+statistique exploratoire uni et bivariée.
+
+1.  On se demande s'il existe un **lien entre le sexe et la note à
+    l'examen**. Quel graphique pouvez-vous utiliser pour observer un
+    éventuel lien ?
+
+```{r}
+
+library(readxl)
+notes <- read_excel("Notes_anciens_etudiants_Ensai.xlsx")
+
+library(vioplot)
+vioplot(notes$Note_epreuve~notes$Sexe)
+```
+
+2.  On cherche à savoir **si la moyenne des garçons est
+    significativement différente de celle des filles au seuil de 5 %**.
+    Pour cela, on envisage d'effectuer un **test de student de
+    comparaison de moyennes**. Une condition de ce test est d'avoir une
+    variable quantitative **suivant une loi normale au sein de chaque
+    groupe**. Utiliser le **test de Shapiro-Wilk** et la fonction R
+    associée `shapiro.test()` pour tester si cette condition est
+    vérifiée. Pour le test de Shapiro-Wilk, **sous** $(H_0)$ la
+    distribution suit une loi normale :
+    $(H_0) : F = F_0 = \mathcal{N(\mu;\sigma^2)}, \mu \in \mathbb{R}, \sigma^2 > 0$
+    quelconques.
+
+```{r}
+shapiro.test(notes$Note_epreuve[notes$Sexe == "H"])
+```
+
+::: {.callout-tip title="**Test d'égalité des variances de Fisher : $(H_0) : \\sigma_1^2 = \\sigma_2^2$ vs. $(H_1) : \\sigma_1^2 \\neq \\sigma_2^2$**"}
+**Formulation du test** : $(H_0) : \sigma_1^2 = \sigma_2^2$ (égalité des
+variances entre les deux populations) vs.
+$(H_1) : \sigma_1^2 \neq \sigma_2^2$ (différence de variances entre les
+deux populations).
+
+\vspace{0.10cm}
+
+Ici, $\sigma_1^2$ et $\sigma_2^2$ représentent les variances de deux
+**populations générales** (supposées **indépendantes et de distributions
+normales**). À partir de deux échantillons de tailles $n_1$ et $n_2$, on
+peut estimer les variances inconnues par les **variances empiriques
+corrigées** (non biaisées) $S_{1,n}^2$ et $S_{2,n}^2$ :
+
+\vspace{-0.20cm}
+
+$$\boxed{S_{1,n}^2 = \frac{1}{n_1-1}\sum_{i=1}^{n_1}{(X_{1,i}-\bar{X}_1)^2} ~~\text{et}~~ S_{2,n}^2 = \frac{1}{n_2-1}\sum_{i=1}^{n_2}{(X_{2,i}-\bar{X}_2)^2}}$$
+
+**Statistique de test** :
+
+\vspace{-0.20cm}
+
+$$F = \frac{S_{1,n}^2 / \sigma_1^2}{S_{2,n}^2 / \sigma_2^2} \overset{(H_0)}{=} \frac{S_{1,n}^2}{S_{2,n}^2} \overset{(H_0)}{\sim} \mathcal{F}(n_1-1, n_2-1)$$
+
+**Règle de décision** :
+$\alpha^{*} = 2 \cdot \min \left[ \mathbb{P}_{(H_0)}(F \le f_{obs}), \mathbb{P}_{(H_0)}(F \ge f_{obs}) \right]$
+avec $F \overset{(H_0)}{\sim} \mathcal{F}(n_1-1, n_2-1)$.
+:::
+
+3.  Une **autre condition pour effectuer le test de student de
+    comparaison de moyennes est d'avoir une variance similaire au sein
+    des 2 groupes**. On propose donc de **tester si la variance des
+    notes pour les garçons est similaire à celle des filles :**
+    $(H_0) : \sigma_H^2 = \sigma_F^2$ vs.
+    $(H_1) : \sigma_H^2 \neq \sigma_F^2$. Pour cela, effectuer un test
+    de Fisher à l'aide de la fonction `var.test()`. Peut-on rejeter
+    l'hypothèse d'égalité des variances au seuil de 5% ?
+
+```{r}
+
+```
+
+4.  Effectuer le **test de student de comparaison de moyennes**. La
+    fonction à utiliser est la fonction `t.test()`. Quelle est
+    l'hypothèse nulle de ce test ? S'agit-il d'un test unilatéral ou
+    bilatéral ? Que concluez-vous au vu de la sortie R ?
+
+H0 : mu homme = mu femme
+
+H1 : mu homme != mu femme
+
+p value = 0.25 on ne peut pas rejeter H0
+
+```{r}
+
+t.test(notes$Note_epreuve~notes$Sexe)
+```
+
+5.  On se demande maintenant s'il y a un **lien entre la voie d'accès au
+    concours et le sexe**. Dit autrement, on se demande **si les filles
+    (respectivement les garçons) sont surreprésentés au sein de
+    certaines filières d'origine (Maths, Eco, Interne, AST)**. Afficher
+    le tableau de contingence des variables de sexe et de voie d'accès.
+    Quel outil numérique du 1er semestre (UE Stat descriptive) avez-vous
+    vu pour analyser le lien entre 2 variables qualitatives ?
+
+```{r}
+tables(notes$Sexe, notes$Voie_accès)
+```
+
+6.  On propose d'effectuer un **test du Khi-2 pour analyser le lien
+    entre ces 2 variables**. Pour cela, utiliser la fonction
+    `chisq.test()`. Quelle est l'hypothèse nulle et la statistique de
+    test ? Que conclure au vu de la sortie R ?
+
+H0 : Y indep de X
+
+H1 : non H0
+
+```{r}
+chisq.test(notes$Sexe, notes$Voie_accès)
+```
+
+7.  Une **condition pour que le test du khi-2 soit valide est que les
+    effectifs théoriques de chaque case du tableau de contingence soient
+    \>5**. Cette condition est-elle respectée ? Pour cela, refaites le
+    test du khi-2 en stockant cela dans un objet `mon_objet_test_X2`.
+    Pour accéder, aux effectifs théoriques, utilisez la syntaxe suivante
+    `mon_objet_test_X2$expected`
+
+```{r}
+
+```
+
+8.  On cherche maintenant à étudier le **lien entre la note à l'examen
+    et la voie d'accès**. Représenter graphiquement la note à l'examen
+    en fonction de la voie d'accès.
+
+```{r}
+
+```
+
+9.  On cherche à **tester l'égalité des moyennes entre les voies
+    d'accès** pour savoir **si une filière réussit significativement
+    mieux que les autres**. Lorsque la variable qualitative contient
+    plus de 2 modalités, on n'utilise plus le test de student du début
+    d'exercice : on privilégie un **test ANOVA (ANalyse Of VAriance)**.
+    Vous trouverez une présentation du test ANOVA **en fin de sujet**.
+    Utiliser la fonction `aov()` pour faire le test ANOVA.
+
+```{r}
+
+```
+
+10. Faire un **test de Shapiro-Wilk** pour tester si les résidus sont
+    bien normalement distribués. Pour récupérer les résidus, vous pouvez
+    adapter la syntaxe suivante `resid(mon_objet_aov)`.
+
+```{r}
+
+```
+
+11. Tester maintenant la condition d'homogénéité des variances avec le
+    **test de Bartlett** (fonction `bartlett.test()`)
+
+```{r}
+?bartlett.test
+```
+
+```{r}
+
+```
+
+12. Le test ANOVA nous dit qu'**il y a au moins un groupe qui diffère
+    des autres (rejet de** $(H_0)$. Pour **identifier lesquels
+    s'écartent des autres, on fait un test de Tukey**. Le test de Tukey,
+    également appelé test HSD (Honestly Significant Difference), est une
+    méthode de comparaison multiple utilisée après une ANOVA.
+
+Ce test permet de déterminer **quelles paires de moyennes diffèrent
+significativement lorsqu'une ANOVA détecte une différence globale
+significative entre les groupes**. Vous trouverez de la documentation
+sur ce test ici <https://en.wikipedia.org/wiki/Tukey%27s_range_test>.
+
+Effectuer le test en modifiant la syntaxe suivante : `TukeyHSD()` sur le
+modèle suivant : <https://www.statology.org/tukey-test-r/>.
+
+Que conclure ?
+
+```{r}
+
+```
+
+\newpage
+
+# Annexes Exercice 1 : le test de rangs de Spearman
+
+## Hypothèses du test :
+
+-   **Hypothèse nulle (**$H_0$) : Les deux variables sont indépendantes
+    (pas de relation monotone).
+-   **Hypothèse alternative (**$H_1$) : Il existe une relation monotone
+    (croissante ou décroissante) entre les deux variables.
+
+## Calcul du coefficient de Spearman ($r_s$)
+
+Le coefficient de Spearman ($r_s$) est basé sur les rangs des
+observations, et il est défini par :
+$$r_s = 1 - \frac{6 \sum d_i^2}{n (n^2 - 1)},$$ où :
+
+-   $d_i$ est la différence entre les rangs des observations de deux
+    variables ($d_i = R(X_i) - R(Y_i)$),
+-   $n$ est le nombre total d'observations.
+
+## Statistique de test
+
+Si la taille de l'échantillon est assez grande, sous l'hypothèse nulle
+($H_0$), le coefficient $r_s$ suit approximativement une loi normale
+après transformation. La statistique de test est donnée par :
+$z = \frac{r_s ~ \sqrt{n - 1}}{\sqrt{1 - r_s^2}}$. Cette statistique
+suit une loi normale standard ($\mathcal{N}(0,1)$) sous $H_0$.
+
+## Calcul de la p-valeur
+
+-   Pour un test bilatéral, la p-valeur est donnée par :
+    $$\text{p-valeur} = 2 \cdot P(Z > |z|)$$ où $Z$ suit une loi normale
+    standard.
+
+-   Si la p-valeur est inférieure au seuil $\alpha$ (ex. $0.05$), on
+    rejette $H_0$, indiquant une corrélation monotone significative.
+
+## Interprétation
+
+-   $r_s > 0$ : Relation monotone **croissante** (les valeurs de $x$
+    augmentent avec $y$).
+-   $r_s < 0$ : Relation monotone **décroissante** (les valeurs de $x$
+    diminuent avec $y$).
+-   $r_s = 0$ : Pas de relation monotone.
+
+\newpage
+
+# Annexes Exercice 2 : le test de Kolmogorov-Smirnov
+
+## Objectifs
+
+Le test de Kolmogorov-Smirnov (KS) est un test statistique non
+paramétrique utilisé pour comparer une distribution observée à une
+distribution théorique (test d'ajustement) ou pour comparer deux
+distributions empiriques. Concrètement, il mesure la différence maximale
+qui existe entre la fonction de répartition observée et celle théorique.
+
+On l'utilise donc pour :
+
+-   Si une série de données suit une loi théorique donnée (ici une loi
+    exponentielle)
+-   Comparer deux échantillons pour déterminer s'ils proviennent de la
+    même population.
+
+## Hypothèses
+
+1.  **Test d'ajustement** :
+
+    -   **Hypothèse nulle (\$ H_0 \$)** : Les données suivent la
+        distribution théorique spécifiée.
+    -   **Hypothèse alternative (\$ H_1 \$)** : Les données ne suivent
+        pas la distribution théorique spécifiée.
+
+2.  **Test de comparaison** :
+
+    -   **(\$ H_0 \$)** : Les deux échantillons proviennent de la même
+        distribution.
+    -   **(\$ H_1 \$)** : Les deux échantillons proviennent de
+        distributions différentes.
+
+## Fonctionnement
+
+1.  Calcul des fonctions de répartition :
+    -   \$ F\_{emp}(x) \$ : Fonction de distribution empirique de
+        l'échantillon.
+    -   \$ F\_{th}(x) \$ : Fonction de distribution théorique ou
+        empirique d'un autre échantillon.
+2.  On détermine la distance maximale entre les fonctions de répartition
+    :
+    -   $D = \max |F_{emp}(x) - F_{th}(x)|$
+3.  On compare la statistique \$ D \$ à une valeur critique issue de la
+    table du test de Kolmogorov-Smirnov.
+
+## Résultat
+
+-   Si \$ D \$ est supérieur à la valeur critique (ou si la p-valeur est
+    inférieure au seuil de signification), on rejette \$ H₀ \$.
+
+\newpage
+
+# Annexes Exercice 2 : le test de Cramer-Von Mises
+
+Le test de Cramér-von Mises est un test statistique non paramétrique
+utilisé pour évaluer la conformité d'une distribution empirique à une
+distribution théorique donnée. C'est une alternative au test de
+Kolmogorov-Smirnov, mais il est plus sensible aux écarts sur toute la
+distribution (et pas seulement à la différence maximale).
+
+## Objectif (les mêmes que le test de Kolmogorov-Smirnov)
+
+-   Tester si un échantillon suit une loi théorique spécifiée.
+-   Comparer une distribution empirique avec une autre distribution
+    empirique ou théorique.
+
+## Hypothèses
+
+1.  **Hypothèse nulle (\$ H_0 \$)** : Les données suivent la
+    distribution théorique spécifiée.
+2.  **Hypothèse alternative (\$ H_1 \$)** : Les données ne suivent pas
+    la distribution théorique spécifiée.
+
+------------------------------------------------------------------------
+
+## Méthodologie
+
+Le test repose sur la comparaison entre la fonction de distribution
+empirique \$ F\_{emp}(x) \$ et la fonction de distribution théorique \$
+F\_{th}(x) \$.\
+La statistique du test est donnée par :
+
+$$W^2 = n \int_{-\infty}^{+\infty} \left[ F_{emp}(x) - F_{th}(x) \right]^2 dF_{th}(x)$$
+
+où $n$ est la taille de l'échantillon.
+
+La statistique calculée est ensuite comparée à la table de Cramer-Von
+Mises (table spécifique comme pour Kolmogorov-Smirnov). Pour celles et
+ceux qui veulent en savoir plus :
+\[https://lemakistatheux.wordpress.com/2013/08/04/test-de-cramer-von-mises/\]
+
+## Implémentation sous R
+
+**Exemple : Vérification d'une loi normale**
+
+``` r
+# Chargement du package goftest
+library(goftest)
+
+# Test de Cramer-von Mises pour une loi normale centrée réduite
+test_result <- cvm.test(data$ma_var, "pnorm", mean = 0, sd = 1)
+```
+
+\newpage
+
+# Annexes Exercice 2 : le test d'Anderson-Darling
+
+Comme le test de Kolmogorov-Smirnov et celui de Cramér-Von Mises, le
+test d'Anderson-Darling est un test statistique non paramétrique utilisé
+pour vérifier si un échantillon suit une distribution théorique donnée.\
+C'est une extension du test de Cramer-von Mises, avec un poids
+supplémentaire accordé aux queues de la distribution.
+
+## Hypothèses
+
+1.  **Hypothèse nulle (\$ H_0 \$)** : Les données suivent la
+    distribution théorique spécifiée.
+2.  **Hypothèse alternative (\$ H_1 \$)** : Les données ne suivent pas
+    la distribution théorique spécifiée.
+
+## Méthodologie
+
+La statistique d'Anderson-Darling \$ A\^2 \$ peut être exprimée sous la
+forme suivante :
+
+$A^2 = n \int_{-\infty}^{\infty} \frac{\left[ F_{\text{emp}}(x) - F_{\text{th}}(x) \right]^2}{F_{\text{th}}(x) \left( 1 - F_{\text{th}}(x) \right)} dF_{\text{th}}(x)$
+
+avec :
+
+-   \$ F\_{\text{emp}}(x) \$ : La fonction de distribution empirique.
+-   \$ F\_{\text{th}}(x) \$ : La fonction de distribution théorique.
+-   \$ n \$ : La taille de l'échantillon.
+-   Le terme au dénominateur,
+    $F_{\text{th}}(x) \left( 1 - F_{\text{th}}(x) \right)$, donne plus
+    de poids aux écarts entre \$ F\_{\text{emp}}(x) \$ et \$
+    F\_{\text{th}}(x) \$ dans les queues de la distribution.
+
+Les queues de la distribution (valeurs proches de 0 ou 1 pour \$
+F\_{\text{th}}(x) \$) reçoivent donc un poids plus élevé dans
+l'intégrale. Cela rend le test d'Anderson-Darling particulièrement
+sensible aux écarts dans ces régions, ce qui est utile dans des
+applications où les queues sont importantes (par exemple en modélisation
+du risque).
+
+Les p-valeurs sont obtenues à partir de simulations ou de tables
+spécifiques.
+
+\newpage
+
+# Annexes Exercice 3 : le test ANOVA
+
+## Hypothèses du Test ANOVA
+
+1.  **Hypothèse nulle (**$H_0$) :\
+    Les moyennes des groupes sont égales :\
+    $H_0 : \mu_1 = \mu_2 = \dots = \mu_k$ Où $k$ représente le nombre de
+    groupes.
+
+2.  **Hypothèse alternative (**$H_a$) :\
+    Au moins une des moyennes est différente.
+
+## Prérequis du Test ANOVA
+
+Pour assurer la validité des résultats, les conditions suivantes doivent
+être respectées :
+
+-   Les observations doivent être **indépendantes** entre les groupes et
+    à l’intérieur de chaque groupe.
+-   Les résidus (différences entre les observations et les moyennes
+    prévues par le modèle) doivent suivre une **distribution normale**
+    dans chaque groupe.
+-   Les variances des groupes doivent être **homogènes** (égales).
