@@ -1,0 +1,54 @@
+---
+title: "TP4"
+format: html
+---
+
+La fonction `across()` est l'outil moderne de `dplyr` (introduit dans la version 1.0.0) pour appliquer une même transformation à **plusieurs colonnes simultanément** à l'intérieur de `mutate()` ou `summarise()`.
+
+Elle remplace les anciennes fonctions comme `mutate_all()`, `mutate_if()` et `mutate_at()` en une seule syntaxe plus puissante et lisible.
+
+### 1. La syntaxe de base
+
+La fonction prend deux arguments principaux :
+
+1.  **`.cols`** : Quelles colonnes transformer ? (On utilise ici les "tidy-select" comme `everything()`, `starts_with()`, ou des tests logiques).
+
+2.  **`.fns`** : Quelle fonction appliquer ? (On peut utiliser le nom d'une fonction ou une formule avec `~`).
+
+R
+
+```         
+df %>%   mutate(across(.cols = ..., .fns = ...)) 
+```
+
+### 2. Exemples d'utilisation
+
+#### A. Remplacer `mutate_if` (par type de données)
+
+Si vous voulez appliquer une fonction à toutes les colonnes numériques (comme dans votre TP avec l'imputation) :
+
+R
+
+```         
+# Avant : mutate_if(is.numeric, mean) # Maintenant : data %>%   mutate(across(where(is.numeric), ~ mean(., na.rm = TRUE))) 
+```
+
+#### B. Remplacer `mutate_at` (par noms de colonnes)
+
+Pour transformer des colonnes spécifiques par leur nom :
+
+R
+
+```         
+data %>%   mutate(across(c(var2, var4), as.character)) 
+```
+
+#### C. Appliquer plusieurs fonctions d'un coup
+
+Vous pouvez passer une liste de fonctions pour créer de nouvelles colonnes automatiquement :
+
+R
+
+```         
+data %>%   summarise(across(where(is.numeric), list(moy = mean, med = median)))
+```
