@@ -1,0 +1,99 @@
+---
+title: "TP2"
+format: html
+editor: visual
+execute:
+  warning: false
+---
+
+```{r}
+
+#| label: setup
+
+library(dplyr)
+library(ggplot2)
+library(lubridate)
+library(plotly)
+
+
+```
+
+## Exercice 1
+
+```{r}
+
+data(package="dplyr")
+data("starwars")
+str(starwars)
+
+starwars <- starwars %>% 
+  filter(is.na(mass)==FALSE,
+         is.na(height)==FALSE))
+
+plot(data=starwars, mass~height)
+
+g <- ggplot(data=starwars, 
+       aes(x=height, y=mass)) +
+         geom_point()
+
+plotly::ggplotly(g)
+
+reg <- lm(data=starwars, mass~height)
+summary(reg)
+
+nv_starwars <- starwars %>% 
+  filter(mass != max(mass))
+
+data(c("economics","presidential"))
+str(economics)
+str(presidential)
+economics <- economics %>% 
+  arrange(desc(date))
+
+economics$annee <- year(economics$date)
+
+economics %>% 
+  group_by(annee) %>% 
+  summarise(nb_mois = n()) %>% 
+  filter(nb_mois != 12)
+
+economics %>% 
+  count(annee) %>% 
+  filter(n!=12)
+
+economics %>% 
+  group_by(annee, month(date)) %>% 
+  summarise(comptage_ligne = n()) %>% 
+  filter(comptage_ligne > 1)
+  
+  
+max(economics$date) - min(economics$date)
+max(economics$date)
+
+as.Date("2007-07-01") - min(economics$date)
+
+str(presidential)
+
+# Calcule la moyenne et l'écart-type pour chaque variable numérique
+economics %>%
+  group_by(annee = year(date)) %>%
+  summarise_if(is.numeric, list(moy = mean, ecart = sd))
+
+# Somme uniquement les colonnes qui sont des nombres entiers
+# (Utile pour compter des occurrences ou des populations)
+economics %>%
+  summarise_if(is.integer, sum)
+
+# Compte le nombre de modalités uniques pour chaque colonne de texte (factor ou character)
+starwars %>%
+  summarise_if(is.character, n_distinct)
+
+# Compte le nombre de NA (valeurs manquantes) pour chaque colonne
+starwars %>%
+  summarise_if(is.numeric, ~sum(is.na(x)))
+
+#sum(is.na(x) n'est pas une fonction (ce que summarise_if attend), mais une valeur déja calculée)
+
+
+
+```

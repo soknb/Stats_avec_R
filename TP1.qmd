@@ -1,0 +1,107 @@
+---
+title: "TP1"
+format: html
+editor: visual
+execute:
+  warning: false
+---
+
+## Chargement données
+
+```{r}
+#| label: setup
+
+library(dplyr)
+library(tidyverse)
+```
+
+## Exercice 1
+
+```{r}
+
+
+communes <- read.csv2("Ressources/communes_2019.csv")
+str(communes)
+communes$pop2019 <- as.numeric(communes$pop2019)
+communes$pop7582019 <- as.numeric(communes$pop7582019)
+communes$pop6475_2019 <- as.numeric(communes$pop6475_2019)
+communes$pop0020_2019 <- as.numeric(communes$pop0020_2019)
+communes$tx_evol_annuel_1319 <- as.numeric(communes$tx_evol_annuel_1319)
+
+communes <- communes %>% 
+  mutate_at(vars(ends_with("19")), as.numeric)
+
+communes <- communes %>% 
+  rename(pop75plus_2019=pop7582019)
+
+communes$grilledens <- factor(communes$grilledens7, labels = c("Grands centres urbains",
+"Centres urbains intermédiaires",
+"Petites villes",
+"Ceintures urbaines",
+"Bourgs ruraux",
+"Rural à habitat dispersé",
+"Rural à habitat très dispersé"))
+
+communes_paca<-communes %>%
+filter(substr(codgeo,1,2) %in% c("04","05","06","13","83","84"))
+
+         
+any(duplicated(communes_paca))
+
+sum(communes_paca$pop2019)
+
+communes_paca$dep <- substr(communes_paca$codgeo, 1,2)
+
+
+pop_par_dep <- communes_paca %>% 
+  group_by(dep) %>% 
+  summarise(sum(pop2019))
+
+dico <- read.csv2("Ressources/dico_aav20.csv")
+
+communes_paca <- communes_paca %>% 
+  left_join(dico, by=c("typoAAV20"="typoaav20"))
+
+communes_paca$i__64p_m20 <- (communes_paca$pop6475_2019 + communes_paca$pop75plus_2019) / communes_paca$pop0020_2019
+  
+boxplot(data = communes_paca,i__64p_m20~dep)
+
+length(unique(communes_paca$dep))
+
+aav20_paca <- communes_paca %>% group_by(libaav20) %>% summarise(
+  nb_communes = n(),
+  poptotale = sum(pop2019),
+  part_com_rurale = sum(pop2019[grilledens7 > 5]),
+  part_com_urbaine = 1 - part_com_rurale
+  
+                  )
+  
+  
+```
+
+## Exercice 2
+
+```{r}
+
+p1 <- 1 - pbinom(10, 5000, 0.001)
+p1
+
+set.seed(1)
+
+obs <- rbinom(365, 5000, 0.001)
+
+obs
+
+i=1
+tension <- c()
+while (i<11){
+  obs <- rbinom(365, 5000, 0.001)
+  tension <- append(tension, sum(obs>10))
+  i <- i+1
+}
+tension
+
+
+```
+
+## 
